@@ -1,9 +1,10 @@
-package main
+package extsort
 
 import (
 	"errors"
 	"fmt"
 	sortio "github.com/xosmig/extsort/io"
+	"log"
 	"math/rand"
 	"os"
 )
@@ -20,44 +21,11 @@ type Params struct {
 
 const DefaultBufferSize = sortio.DefaultBufValuesCount
 
-//func DefaultParams(inputSize uint64, memorySize int) (Params, error) {
-//	params := Params{
-//		InputSize:  inputSize,
-//		MemoryLimit: memorySize,
-//		BufferSize: DefaultBufferSize,
-//	}
-//
-//	if inputSize/uint64(memorySize) > 1000 {
-//		return params, ErrNotEnoughMemory
-//	}
-//
-//	var memoryLeft = memorySize
-//	// reserve memory for the output buffer
-//	memoryLeft -= params.BufferSize
-//	// reserve memory for the segments
-//	expectedSegmentsCount := int(inputSize / uint64(memoryLeft))
-//	expectedSegmentsSize := 2 * expectedSegmentsCount
-//	reservedForSegments := 2 * expectedSegmentsSize
-//	if reservedForSegments >= memoryLeft/2 {
-//		return params, ErrNotEnoughMemory
-//	}
-//	memoryLeft -= reservedForSegments
-//	// store resulting value in params
-//	params.ReplacementSelectionMemoryLimit = memoryLeft
-//
-//	memoryLeft = memorySize
-//	// reserve memory for the input buffer
-//	memoryLeft -= params.BufferSize
-//	// reserve memory for the segments
-//	memoryLeft -= reservedForSegments
-//	// store resulting value in params
-//	params.Arity = memoryLeft / params.BufferSize
-//
-//	// return resulting parameters
-//	return params, nil
-//}
-
 func DefaultParams(memoryLimit int) Params {
+	return DefaultParamsBufferSize(memoryLimit, DefaultBufferSize)
+}
+
+func DefaultParamsBufferSize(memoryLimit, bufferSize int) Params {
 	// this should be enough unless the input is more than a thousand times larger than the memory limit
 	reserveMemoryForSegmentsInfo := 4096
 
@@ -65,8 +33,8 @@ func DefaultParams(memoryLimit int) Params {
 		MemoryLimit:                     memoryLimit,
 		Arity:                           -1,  // it will be calculated later by the sorting algorithm
 		ReserveMemoryForSegmentsInfo:    reserveMemoryForSegmentsInfo,
-		ReplacementSelectionMemoryLimit: memoryLimit - 2 * DefaultBufferSize - reserveMemoryForSegmentsInfo,
-		BufferSize:                      DefaultBufferSize,
+		ReplacementSelectionMemoryLimit: memoryLimit - 2 * bufferSize - reserveMemoryForSegmentsInfo,
+		BufferSize:                      bufferSize,
 	}
 }
 
@@ -153,10 +121,12 @@ func (s *sorter) doSort(r sortio.Uint64Reader, w sortio.Uint64Writer) error {
 		return err
 	}
 
+	log.Println("Running replacement selection...")
 	segmentsHeap, err := s.runReplacementSelection(r)
 	if err != nil {
 		return err
 	}
+	log.Println("Replacement selection done.")
 
 	if s.params.Arity == -1 {
 		s.params.Arity, err = DefaultArity(s.params, segmentsHeap.Len())
@@ -166,20 +136,28 @@ func (s *sorter) doSort(r sortio.Uint64Reader, w sortio.Uint64Writer) error {
 	}
 
 	if segmentsHeap.Len() <= s.params.Arity {
+		log.Println("Running final merge...")
 		_, err := s.mergeSmallestSegmentsTo(&segmentsHeap, segmentsHeap.Len(), w)
+		log.Println("Final merge done.")
 		return err
 	}
 
+	log.Println("Replacement first merge...")
 	firstMergeArity := (segmentsHeap.Len()-1)%(s.params.Arity-1) + 1
 	if firstMergeArity > 1 {
 		s.mergeSmallestSegments(&segmentsHeap, firstMergeArity)
 	}
+	log.Println("First merge done.")
 
+	log.Println("Running intermediate merge sort...")
 	for segmentsHeap.Len() > s.params.Arity {
 		s.mergeSmallestSegments(&segmentsHeap, s.params.Arity)
 	}
+	log.Println("Intermediate merge sort done.")
 
+	log.Println("Running final merge...")
 	_, err = s.mergeSmallestSegmentsTo(&segmentsHeap, s.params.Arity, w)
+	log.Println("Final merge done.")
 	return err
 }
 

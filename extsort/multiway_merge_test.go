@@ -1,4 +1,4 @@
-package main
+package extsort
 
 import (
 	sortio "github.com/xosmig/extsort/io"
