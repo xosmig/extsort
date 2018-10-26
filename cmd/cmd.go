@@ -68,6 +68,14 @@ var rootCmd = &cobra.Command{
 			output = sortio.NewBinaryUint64WriterCountBuf(outputFile, bufferSizeValues, byteBuffer)
 		}
 
+		if noSort {
+			err := sortio.CopyValues(input, output)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			}
+			return
+		}
+
 		params := extsort.CreateParams(
 			memoryLimitValues - 3 * bufferSizeValues,
 			bufferSizeValues,
@@ -86,6 +94,7 @@ var textFormat bool
 var textInputFormat bool
 var textOutputFormat bool
 var useReplacementSelection bool
+var noSort bool
 var bufferSize int
 
 func Execute() {
@@ -96,6 +105,8 @@ func Execute() {
 	rootCmd.PersistentFlags().BoolVar(&textOutputFormat, "text_output", false, "use textual output format")
 	rootCmd.PersistentFlags().BoolVar(&useReplacementSelection, "replacement_selection",
 		false, "use replacement selection algorithm")
+	rootCmd.PersistentFlags().BoolVar(&noSort, "noSort",
+		false, "just output the input data without sorting")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

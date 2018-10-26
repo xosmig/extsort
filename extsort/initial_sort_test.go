@@ -52,16 +52,12 @@ func BenchmarkDoInitialSort_1G_values(b *testing.B) {
 	}
 }
 
-//
-// Warning: you can easily run out of memory while running this benchmark
-func BenchmarkSortSlice_128M_values(b *testing.B) {
-	const N = 1024 * 1024 * 1024  / sortio.SizeOfValue // 1GiB data = 128M values
-
+func benchmarkSortSliceImpl(b *testing.B, count int) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
 		log.Println("Preparing data...")
-		inputData := make([]uint64, N)
+		inputData := make([]uint64, count)
 		for i := range inputData {
 			inputData[i] = rand.Uint64()
 		}
@@ -72,36 +68,23 @@ func BenchmarkSortSlice_128M_values(b *testing.B) {
 	}
 }
 
+//
+// Warning: you can easily run out of memory while running this benchmark
+func BenchmarkSortSlice_1GiB(b *testing.B) {
+	const N = 1024 * 1024 * 1024  / sortio.SizeOfValue // 1GiB data = 128M values
+	benchmarkSortSliceImpl(b, N)
+}
+
 // 22s
 func BenchmarkSortSlice_100M_values(b *testing.B) {
 	const N = 100 * 1000 * 1000
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		b.StopTimer()
-		inputData := make([]uint64, N)
-		for i := range inputData {
-			inputData[i] = rand.Uint64()
-		}
-		b.StartTimer()
-
-		sort.Slice(inputData, func(i, j int) bool { return inputData[i] < inputData[j] })
-	}
+	benchmarkSortSliceImpl(b, N)
 }
 
 // 45s
 func BenchmarkSortSlice_200M_values(b *testing.B) {
 	const N = 200 * 1000 * 1000
-	b.ResetTimer()
-	for n := 0; n < b.N; n++ {
-		b.StopTimer()
-		inputData := make([]uint64, N)
-		for i := range inputData {
-			inputData[i] = rand.Uint64()
-		}
-		b.StartTimer()
-
-		sort.Slice(inputData, func(i, j int) bool { return inputData[i] < inputData[j] })
-	}
+	benchmarkSortSliceImpl(b, N)
 }
 
 func BenchmarkSortSlice_200M_values_sorted(b *testing.B) {
@@ -109,10 +92,12 @@ func BenchmarkSortSlice_200M_values_sorted(b *testing.B) {
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {
 		b.StopTimer()
+		log.Println("Preparing data...")
 		inputData := make([]uint64, N)
 		for i := range inputData {
 			inputData[i] = uint64(i)
 		}
+		log.Println("Preparation finished.")
 		b.StartTimer()
 
 		sort.Slice(inputData, func(i, j int) bool { return inputData[i] < inputData[j] })
