@@ -4,12 +4,13 @@ import (
 	"bufio"
 	"encoding/binary"
 	"fmt"
+	"github.com/xosmig/extsort/util"
 	"io"
 )
 
 type Uint64Reader interface {
 	ReadUint64() (uint64, error)
-	//PeekUint64() (uint64, error)
+	SetProfiler(p *util.SimpleProfiler)
 }
 
 type BinaryUint64Reader struct {
@@ -17,6 +18,7 @@ type BinaryUint64Reader struct {
 	valuesBuf  []uint64
 	valuesTail []uint64
 	readBuf    []byte
+	profiler   *util.SimpleProfiler
 }
 
 func NewBinaryUint64ReaderCountBuf(r io.Reader, count int, bytesBuf []byte) *BinaryUint64Reader {
@@ -30,6 +32,7 @@ func NewBinaryUint64ReaderCountBuf(r io.Reader, count int, bytesBuf []byte) *Bin
 		valuesBuf:  valuesBuf,
 		valuesTail: valuesBuf[:0],
 		readBuf:    bytesBuf,
+		profiler:   util.NewNilSimpleProfiler(),
 	}
 }
 
@@ -41,11 +44,15 @@ func NewBinaryUint64Reader(r io.Reader) *BinaryUint64Reader {
 	return NewBinaryUint64ReaderCount(r, DefaultBufValuesCount)
 }
 
+func (r *BinaryUint64Reader) SetProfiler(p *util.SimpleProfiler) {
+	r.profiler = p
+}
+
 // either puts 1 or more new values to valuesTail or returns an error
 func (r *BinaryUint64Reader) fillEmpty() error {
-	// TODO: insert profiling here
+	r.profiler.StartMeasuring()
 	n, err := io.ReadFull(r.stream, r.readBuf)
-	// TODO: insert profiling here
+	r.profiler.FinishMeasuring()
 
 	if err == io.EOF || err == io.ErrUnexpectedEOF {
 		err = nil
@@ -92,7 +99,7 @@ func (r *BinaryUint64Reader) ReadUint64() (uint64, error) {
 	return value, nil
 }
 
-type SliceUint64Reader struct{
+type SliceUint64Reader struct {
 	data []uint64
 	pos  int
 }
@@ -100,6 +107,8 @@ type SliceUint64Reader struct{
 func NewSliceUint64Reader(data []uint64) *SliceUint64Reader {
 	return &SliceUint64Reader{data, 0}
 }
+
+func (w *SliceUint64Reader) SetProfiler(p *util.SimpleProfiler) {}
 
 func (r *SliceUint64Reader) ReadUint64() (uint64, error) {
 	if r.pos == len(r.data) {
@@ -142,6 +151,10 @@ func NewBoundedUint64Reader(r Uint64Reader, length uint64) *BoundedUint64Reader 
 	}
 }
 
+func (w *BoundedUint64Reader) SetProfiler(p *util.SimpleProfiler) {
+	w.impl.SetProfiler(p)
+}
+
 func (r *BoundedUint64Reader) ReadUint64() (uint64, error) {
 	if r.read == r.length {
 		return 0, io.EOF
@@ -151,28 +164,34 @@ func (r *BoundedUint64Reader) ReadUint64() (uint64, error) {
 }
 
 type TextUint64Reader struct {
-	stream *bufio.Reader
+	stream   *bufio.Reader
+	profiler *util.SimpleProfiler
 }
 
-func (r TextUint64Reader) ReadUint64() (uint64, error) {
+func NewTextUint64ReaderCount(r io.Reader, count int) *TextUint64Reader {
+	stream, ok := r.(*bufio.Reader)
+	if !ok {
+		stream = bufio.NewReaderSize(r, count*SizeOfValue)
+	}
+	return &TextUint64Reader{
+		stream: stream,
+		profiler: util.NewNilSimpleProfiler(),
+	}
+}
+
+func (r *TextUint64Reader) SetProfiler(p *util.SimpleProfiler) {
+	r.profiler = p
+}
+
+func (r *TextUint64Reader) ReadUint64() (uint64, error) {
 	var value uint64
+	r.profiler.StartMeasuring()
 	_, err := fmt.Fscan(r.stream, &value)
+	r.profiler.FinishMeasuring()
 	if err != nil {
 		return 0, err
 	}
 	return value, nil
-}
-
-func NewTextUint64ReaderCount(r io.Reader, count int) TextUint64Reader {
-	if stream, ok := r.(*bufio.Reader); ok {
-		return TextUint64Reader{
-			stream: stream,
-		}
-	} else {
-		return TextUint64Reader{
-			stream: bufio.NewReaderSize(r, count * SizeOfValue),
-		}
-	}
 }
 
 //func (r BoundedUint64Reader) PeekUint64() (uint64, error) {

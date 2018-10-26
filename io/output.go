@@ -12,12 +12,14 @@ import (
 type Uint64Writer interface {
 	WriteUint64(x uint64) error
 	Flush() error
+	SetProfiler(p *util.SimpleProfiler)
 }
 
 type BinaryUint64Writer struct {
 	stream    io.Writer
 	valuesBuf []uint64
 	writeBuf  []byte
+	profiler  *util.SimpleProfiler
 }
 
 var ErrTooSmallBuffer = errors.New("too small buffer provided")
@@ -31,6 +33,7 @@ func NewBinaryUint64WriterCountBuf(w io.Writer, count int, bytesBuf []byte) *Bin
 		stream:    w,
 		valuesBuf: make([]uint64, 0, count),
 		writeBuf:  bytesBuf,
+		profiler:  util.NewNilSimpleProfiler(),
 	}
 }
 
@@ -42,12 +45,20 @@ func NewBinaryUint64Writer(w io.Writer) *BinaryUint64Writer {
 	return NewBinaryUint64WriterCount(w, DefaultBufValuesCount)
 }
 
+func (w *BinaryUint64Writer) SetProfiler(p *util.SimpleProfiler) {
+	w.profiler = p
+}
+
 func (w *BinaryUint64Writer) Flush() error {
 	count := len(w.valuesBuf)
 	for valueIdx := 0; valueIdx < count; valueIdx++ {
 		binary.LittleEndian.PutUint64(w.writeBuf[valueIdx*SizeOfValue:], w.valuesBuf[valueIdx])
 	}
+
+	w.profiler.StartMeasuring()
 	_, err := w.stream.Write(w.writeBuf[:count*SizeOfValue])
+	w.profiler.FinishMeasuring()
+
 	if err != nil {
 		return err
 	}
@@ -88,6 +99,8 @@ func (w *SliceUint64Writer) Data() []uint64 {
 	return w.data
 }
 
+func (w *SliceUint64Writer) SetProfiler(p *util.SimpleProfiler) {}
+
 type NullUint64Writer struct{}
 
 func NewNullUint64Writer() NullUint64Writer {
@@ -102,27 +115,36 @@ func (w NullUint64Writer) WriteUint64(x uint64) error {
 	return nil
 }
 
+func (w NullUint64Writer) SetProfiler(p *util.SimpleProfiler) {}
+
 type TextUint64Writer struct {
-	stream *bufio.Writer
+	stream   *bufio.Writer
+	profiler *util.SimpleProfiler
 }
 
-func (w TextUint64Writer) WriteUint64(x uint64) error {
-	_, err := w.stream.WriteString(fmt.Sprintln(x))
-	return err
-}
-
-func (w TextUint64Writer) Flush() error {
-	return w.stream.Flush()
-}
-
-func NewTextUint64WriterCount(w io.Writer, count int) TextUint64Writer {
+func NewTextUint64WriterCount(w io.Writer, count int) *TextUint64Writer {
 	if stream, ok := w.(*bufio.Writer); ok {
-		return TextUint64Writer{
+		return &TextUint64Writer{
 			stream: stream,
 		}
 	} else {
-		return TextUint64Writer{
-			stream: bufio.NewWriterSize(w, count * SizeOfValue),
+		return &TextUint64Writer{
+			stream: bufio.NewWriterSize(w, count*SizeOfValue),
 		}
 	}
+}
+
+func (w *TextUint64Writer) SetProfiler(p *util.SimpleProfiler) {
+	w.profiler = p
+}
+
+func (w *TextUint64Writer) WriteUint64(x uint64) error {
+	w.profiler.StartMeasuring()
+	_, err := w.stream.WriteString(fmt.Sprintln(x))
+	w.profiler.FinishMeasuring()
+	return err
+}
+
+func (w *TextUint64Writer) Flush() error {
+	return w.stream.Flush()
 }
