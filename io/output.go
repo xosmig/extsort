@@ -1,8 +1,10 @@
 package io
 
 import (
+	"bufio"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"github.com/xosmig/extsort/util"
 	"io"
 )
@@ -98,4 +100,29 @@ func (w NullUint64Writer) Flush() error {
 
 func (w NullUint64Writer) WriteUint64(x uint64) error {
 	return nil
+}
+
+type TextUint64Writer struct {
+	stream *bufio.Writer
+}
+
+func (w TextUint64Writer) WriteUint64(x uint64) error {
+	_, err := w.stream.WriteString(fmt.Sprintln(x))
+	return err
+}
+
+func (w TextUint64Writer) Flush() error {
+	return w.stream.Flush()
+}
+
+func NewTextUint64WriterCount(w io.Writer, count int) TextUint64Writer {
+	if stream, ok := w.(*bufio.Writer); ok {
+		return TextUint64Writer{
+			stream: stream,
+		}
+	} else {
+		return TextUint64Writer{
+			stream: bufio.NewWriterSize(w, count * SizeOfValue),
+		}
+	}
 }

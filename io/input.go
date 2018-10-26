@@ -1,6 +1,7 @@
 package io
 
 import (
+	"bufio"
 	"encoding/binary"
 	"fmt"
 	"io"
@@ -147,6 +148,31 @@ func (r *BoundedUint64Reader) ReadUint64() (uint64, error) {
 	}
 	r.read++
 	return r.impl.ReadUint64()
+}
+
+type TextUint64Reader struct {
+	stream *bufio.Reader
+}
+
+func (r TextUint64Reader) ReadUint64() (uint64, error) {
+	var value uint64
+	_, err := fmt.Fscan(r.stream, &value)
+	if err != nil {
+		return 0, err
+	}
+	return value, nil
+}
+
+func NewTextUint64ReaderCount(r io.Reader, count int) TextUint64Reader {
+	if stream, ok := r.(*bufio.Reader); ok {
+		return TextUint64Reader{
+			stream: stream,
+		}
+	} else {
+		return TextUint64Reader{
+			stream: bufio.NewReaderSize(r, count * SizeOfValue),
+		}
+	}
 }
 
 //func (r BoundedUint64Reader) PeekUint64() (uint64, error) {

@@ -29,7 +29,7 @@ func TestDoMultiwayMerge(t *testing.T) {
 	}
 }
 
-//
+// Memory limit :(
 // Warning: you can easily run out of memory while running this benchmark
 // Warning: running this benchmark might take more than 15 minutes
 func BenchmarkDoMultiwayMerge_1G_values(b *testing.B) {
