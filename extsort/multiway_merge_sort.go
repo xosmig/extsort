@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	sortio "github.com/xosmig/extsort/io"
+	"github.com/xosmig/extsort/util"
 	"log"
 	"math/rand"
 	"os"
@@ -80,14 +81,25 @@ func DefaultArity(params Params, segmentsCount int) (int, error) {
 	return arity, nil
 }
 
-func DoMultiwayMergeSort(r sortio.Uint64Reader, w sortio.Uint64Writer, memorySize int) error {
-	return DoMultiwayMergeSortParams(r, w, DefaultParams(memorySize))
+func DoMultiwayMergeSort(
+	r sortio.Uint64Reader,
+	w sortio.Uint64Writer,
+	memorySize int,
+	profiler *util.SimpleProfiler) error {
+
+	return DoMultiwayMergeSortParams(r, w, DefaultParams(memorySize), profiler)
 }
 
-func DoMultiwayMergeSortParams(r sortio.Uint64Reader, w sortio.Uint64Writer, params Params) error {
+func DoMultiwayMergeSortParams(
+	r sortio.Uint64Reader,
+	w sortio.Uint64Writer,
+	params Params,
+	profiler *util.SimpleProfiler) error {
+
 	s := sorter{
 		params:  params,
 		byteBuf: sortio.NewUint64ByteBuf(params.BufferSize),
+		profiler: profiler,
 	}
 	defer s.close()
 	return s.doSort(r, w)
@@ -97,6 +109,7 @@ type sorter struct {
 	params   Params
 	byteBuf  []byte
 	tmpFiles []string
+	profiler *util.SimpleProfiler
 }
 
 func (s *sorter) newTmpFile() string {
@@ -113,6 +126,7 @@ func (s *sorter) newTmpFileWriter() (filename string, w sortio.Uint64Writer, f *
 	}
 
 	w = sortio.NewBinaryUint64WriterCountBuf(f, s.params.BufferSize, s.byteBuf)
+	w.SetProfiler(s.profiler)
 	return
 }
 
@@ -220,11 +234,11 @@ func (s *sorter) mergeSmallestSegmentsTo(h *sortSegmentsHeap, n int, w sortio.Ui
 	var outputLength uint64 = 0
 	for i := 0; i < n; i++ {
 		segment := h.HPop()
-		r, dispose, err := segment.getReader()
+		r, f, err := s.getSegmentReader(&segment)
 		if err != nil {
 			return 0, err
 		}
-		defer dispose()
+		defer f.Close()
 
 		readers = append(readers, r)
 		outputLength += segment.count
@@ -236,4 +250,16 @@ func (s *sorter) mergeSmallestSegmentsTo(h *sortSegmentsHeap, n int, w sortio.Ui
 	}
 
 	return outputLength, nil
+}
+
+func (s *sorter) getSegmentReader(segment *sortSegment) (sortio.Uint64Reader, *os.File, error) {
+	f, err := segment.Open()
+	if err != nil {
+		return nil, nil, err
+	}
+
+	binaryReader := sortio.NewBinaryUint64ReaderCountBuf(f, s.params.BufferSize, s.byteBuf)
+	reader := sortio.NewBoundedUint64Reader(binaryReader, segment.count)
+	reader.SetProfiler(s.profiler)
+	return reader, f, nil
 }

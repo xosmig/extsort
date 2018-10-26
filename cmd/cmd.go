@@ -5,6 +5,7 @@ import (
 	"github.com/spf13/cobra"
 	"github.com/xosmig/extsort/extsort"
 	sortio "github.com/xosmig/extsort/io"
+	"github.com/xosmig/extsort/util"
 	"io"
 	"os"
 )
@@ -28,6 +29,11 @@ var rootCmd = &cobra.Command{
 
 		byteBuffer := sortio.NewUint64ByteBuf(bufferSizeValues)
 
+		var profiler = util.NewNilSimpleProfiler()
+		if !disableProfiling {
+			profiler = util.NewSimpleProfiler()
+		}
+
 		var inputFile io.Reader
 		if len(args) >= 1 {
 			f, err := os.Open(args[0])
@@ -47,6 +53,7 @@ var rootCmd = &cobra.Command{
 		} else {
 			input = sortio.NewBinaryUint64ReaderCountBuf(inputFile, bufferSizeValues, byteBuffer)
 		}
+		input.SetProfiler(profiler)
 
 		var outputFile io.Writer
 		if len(args) >= 2 {
@@ -67,24 +74,33 @@ var rootCmd = &cobra.Command{
 		} else {
 			output = sortio.NewBinaryUint64WriterCountBuf(outputFile, bufferSizeValues, byteBuffer)
 		}
-
-		if noSort {
-			err := sortio.CopyValues(input, output)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-			}
-			return
-		}
+		output.SetProfiler(profiler)
 
 		params := extsort.CreateParams(
 			memoryLimitValues - 3 * bufferSizeValues,
 			bufferSizeValues,
 			useReplacementSelection)
 
-		err := extsort.DoMultiwayMergeSortParams(input, output, params)
+		run := func() error { return extsort.DoMultiwayMergeSortParams(input, output, params, profiler) }
+		if noSort {
+			run = func() error { return sortio.CopyValues(input, output) }
+		}
+
+
+		profiler.Start()
+		err := run()
+		profiler.Finish()
+
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error sorting data: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
+		}
+
+		if !profiler.IsNilProfiler() {
+			fmt.Fprint(os.Stderr, "Profiling results:\n")
+			fmt.Fprintf(os.Stderr, "io time: %.2f seconds\n", float64(profiler.GetTotalMeasuredDuration().Nanoseconds()) / 1e9)
+			fmt.Fprintf(os.Stderr, "total time: %.2f seconds\n", float64(profiler.GetTotalRunningDuration().Nanoseconds()) / 1e9)
+			fmt.Fprintf(os.Stderr, "io time ratio: %.2f\n", profiler.GetMeasuredDurationRatio())
 		}
 	},
 }
@@ -96,6 +112,7 @@ var textOutputFormat bool
 var useReplacementSelection bool
 var noSort bool
 var bufferSize int
+var disableProfiling bool
 
 func Execute() {
 	rootCmd.PersistentFlags().IntVar(&memoryLimit, "ml", 1024 * 1024 * 1024, "memory limit (in bytes)")
@@ -105,6 +122,7 @@ func Execute() {
 	rootCmd.PersistentFlags().BoolVar(&textOutputFormat, "text_output", false, "use textual output format")
 	rootCmd.PersistentFlags().BoolVar(&useReplacementSelection, "replacement_selection",
 		false, "use replacement selection algorithm")
+	rootCmd.PersistentFlags().BoolVar(&disableProfiling, "no_prof", false, "disable io profiling")
 	rootCmd.PersistentFlags().BoolVar(&noSort, "noSort",
 		false, "just output the input data without sorting")
 

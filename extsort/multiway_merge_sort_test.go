@@ -2,6 +2,7 @@ package extsort
 
 import (
 	sortio "github.com/xosmig/extsort/io"
+	"github.com/xosmig/extsort/util"
 	"log"
 	"math/rand"
 	"reflect"
@@ -56,7 +57,7 @@ func TestDoMultiwayMergeSort(t *testing.T) {
 			input := sortio.NewSliceUint64Reader(tc.inputData)
 			output := sortio.NewSliceUint64Writer()
 
-			err := DoMultiwayMergeSortParams(input, output, tc.params)
+			err := DoMultiwayMergeSortParams(input, output, tc.params, util.NewNilSimpleProfiler())
 			if err != nil {
 				t.Fatalf("unexpected error: %v", err)
 			}
@@ -100,7 +101,7 @@ func BenchmarkDoMultiwayMergeSort_1G_values(b *testing.B) {
 		log.Println("Preparation finished.")
 		b.StartTimer()
 
-		DoMultiwayMergeSort(input, output, MemoryLimit)
+		DoMultiwayMergeSort(input, output, MemoryLimit, util.NewNilSimpleProfiler())
 	}
 }
 

@@ -11,7 +11,7 @@ type sortSegment struct {
 	filename          string
 }
 
-func (s *sortSegment) open() (*os.File, error) {
+func (s *sortSegment) Open() (*os.File, error) {
 	f, err := os.Open(s.filename)
 	if err != nil {
 		return nil, err
@@ -24,18 +24,6 @@ func (s *sortSegment) open() (*os.File, error) {
 	}
 
 	return f, nil
-}
-
-func (s *sortSegment) getReader() (r sortio.Uint64Reader, dispose func(), err error) {
-	var f *os.File
-	f, err = s.open()
-	if err != nil {
-		return
-	}
-
-	r = sortio.NewBoundedUint64Reader(sortio.NewBinaryUint64Reader(f), s.count)
-	dispose = func() { f.Close() }
-	return
 }
 
 type sortSegmentsHeapImpl []sortSegment

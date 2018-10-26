@@ -33,6 +33,10 @@ func NewNilSimpleProfiler() *SimpleProfiler {
 }
 
 func (p *SimpleProfiler) Start() {
+	if p.state == stateNilProfiler {
+		return
+	}
+
 	if p.state != stateCreated {
 		panic("Invalid state")
 	}
@@ -72,6 +76,10 @@ func (p *SimpleProfiler) FinishMeasuring() {
 func (p *SimpleProfiler) Finish() {
 	measuredDuration := time.Since(p.runStart)
 
+	if p.state == stateNilProfiler {
+		return
+	}
+
 	if p.state != stateRunning {
 		panic("Invalid state")
 	}
@@ -102,4 +110,8 @@ func (p *SimpleProfiler) GetMeasuredDurationRatio() float64 {
 	}
 
 	return float64(p.totalMeasuredDuration.Nanoseconds()) / float64(p.totalRunningDuration.Nanoseconds())
+}
+
+func (p *SimpleProfiler) IsNilProfiler() bool {
+	return p.state == stateNilProfiler
 }
