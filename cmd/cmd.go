@@ -49,7 +49,7 @@ var rootCmd = &cobra.Command{
 			panic("Not implemented yet")
 		}
 
-		params := extsort.DefaultParamsBufferSize(memoryLimitValues, bufferSizeValues)
+		params := extsort.CreateParams(memoryLimitValues, bufferSizeValues, false)
 		err := extsort.DoMultiwayMergeSortParams(input, output, params)
 		if err != nil {
 			panic("TODO5")

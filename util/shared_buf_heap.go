@@ -3,10 +3,13 @@ package util
 import "container/heap"
 
 type SharedBufHeap interface {
+	ArrayPush(uint64)
+	HInit()
 	HPush(uint64)
 	HPop() uint64
 	Len() int
 	Cap() int
+	MinValue() uint64
 }
 
 func NewSharedBufHeap(size int) (SharedBufHeap, SharedBufHeap) {
@@ -64,6 +67,18 @@ func (h leftHeap) HPop() uint64 {
 	return heap.Pop(h).(uint64)
 }
 
+func (h leftHeap) ArrayPush(x uint64) {
+	h.Push(x)
+}
+
+func (h leftHeap) HInit() {
+	heap.Init(h)
+}
+
+func (h leftHeap) MinValue() uint64 {
+	return h.data[0]
+}
+
 type rightHeap struct{ *heapData }
 
 func (h rightHeap) dataIdx(i int) int {
@@ -98,4 +113,16 @@ func (h rightHeap) HPush(x uint64) {
 
 func (h rightHeap) HPop() uint64 {
 	return heap.Pop(h).(uint64)
+}
+
+func (h rightHeap) ArrayPush(x uint64) {
+	h.Push(x)
+}
+
+func (h rightHeap) HInit() {
+	heap.Init(h)
+}
+
+func (h rightHeap) MinValue() uint64 {
+	return h.data[h.dataIdx(0)]
 }

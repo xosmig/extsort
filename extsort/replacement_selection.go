@@ -3,6 +3,7 @@ package extsort
 import (
 	sortio "github.com/xosmig/extsort/io"
 	"github.com/xosmig/extsort/util"
+	"io"
 )
 
 type Segment struct {
@@ -39,6 +40,7 @@ func DoReplacementSelection(
 			lastWrittenValue = 0
 			segmentBegin = elementsWritten
 			currentHeap, nextHeap = nextHeap, currentHeap
+			currentHeap.HInit()
 		}
 
 		lastWrittenValue = currentHeap.HPop()
@@ -50,38 +52,57 @@ func DoReplacementSelection(
 		return nil
 	}
 
+	for currentHeap.Cap() > 0 {
+		value, err := r.ReadUint64()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		currentHeap.ArrayPush(value)
+	}
+	currentHeap.HInit()
+
+	var value uint64
 	var err error
-	var readValue uint64
-	for sortio.ReadUint64To(r, &readValue, &err) {
-		if currentHeap.Cap() == 0 {
-			err := flushOneElement()
-			if err != nil {
-				return nil, err
-			}
+	for sortio.ReadUint64To(r, &value, &err) {
+		//if value >= lastWrittenValue && value <= currentHeap.MinValue() {
+		//	err := w.WriteUint64(value)
+		//	if err != nil {
+		//		return nil, err
+		//	}
+		//}
+
+		if err = flushOneElement(); err != nil {
+			return nil, err
 		}
 
-		if readValue >= lastWrittenValue {
-			currentHeap.HPush(readValue)
+		if value >= lastWrittenValue {
+			currentHeap.HPush(value)
 		} else {
-			nextHeap.HPush(readValue)
+			nextHeap.ArrayPush(value)
 		}
 	}
+
 	if err != nil {
 		return nil, err
 	}
 
 	for currentHeap.Len() > 0 || nextHeap.Len() > 0 {
-		err = flushOneElement()
-		if err != nil {
+		if err = flushOneElement(); err != nil {
 			return nil, err
 		}
 	}
 
-	err = addSegment(Segment{segmentBegin, elementsWritten - segmentBegin})
+	if err = addSegment(Segment{segmentBegin, elementsWritten - segmentBegin}); err != nil {
+		return nil, err
+	}
+
+	err = w.Flush()
 	if err != nil {
 		return nil, err
 	}
 
-	w.Flush()
 	return segments, nil
 }

@@ -47,12 +47,12 @@ type readerValuePair struct {
 
 type readersHeap struct{ data []readerValuePair }
 
-func (r readersHeap) Len() int           { return len(r.data) }
-func (r readersHeap) Less(i, j int) bool { return r.data[i].value < r.data[j].value }
-func (r readersHeap) Swap(i, j int)      { r.data[i], r.data[j] = r.data[j], r.data[i] }
+func (h readersHeap) Len() int           { return len(h.data) }
+func (h readersHeap) Less(i, j int) bool { return h.data[i].value < h.data[j].value }
+func (h readersHeap) Swap(i, j int)      { h.data[i], h.data[j] = h.data[j], h.data[i] }
 
-func (r *readersHeap) Push(x interface{}) {
-	r.data = append(r.data, x.(readerValuePair))
+func (h *readersHeap) Push(x interface{}) {
+	h.data = append(h.data, x.(readerValuePair))
 }
 
 func (h *readersHeap) Pop() interface{} {

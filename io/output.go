@@ -3,6 +3,7 @@ package io
 import (
 	"encoding/binary"
 	"errors"
+	"github.com/xosmig/extsort/util"
 	"io"
 )
 
@@ -81,5 +82,20 @@ func (w *SliceUint64Writer) WriteUint64(x uint64) error {
 }
 
 func (w *SliceUint64Writer) Data() []uint64 {
+	_, _ = util.NewSharedBufHeap(100)
 	return w.data
+}
+
+type NullUint64Writer struct{}
+
+func NewNullUint64Writer() NullUint64Writer {
+	return NullUint64Writer{}
+}
+
+func (w NullUint64Writer) Flush() error {
+	return nil
+}
+
+func (w NullUint64Writer) WriteUint64(x uint64) error {
+	return nil
 }

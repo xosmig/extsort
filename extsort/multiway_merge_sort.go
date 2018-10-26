@@ -7,53 +7,60 @@ import (
 	"log"
 	"math/rand"
 	"os"
+	"runtime"
 )
 
 var ErrNotEnoughMemory = errors.New("not enough memory")
 
+type ReplacementSelectionParams struct {
+}
+
 type Params struct {
-	MemoryLimit                     int  // expressed in values (1 value equals 8 bytes)
-	Arity                           int  // -1 for default value
-	ReserveMemoryForSegmentsInfo    int  // expressed in values (1 value equals 8 bytes)
-	ReplacementSelectionMemoryLimit int  // expressed in values (1 value equals 8 bytes)
-	BufferSize                      int  // expressed in values (1 value equals 8 bytes)
+	MemoryLimit                  int  // expressed in values (1 value equals 8 bytes)
+	Arity                        int  // -1 for default value
+	BufferSize                   int  // expressed in values (1 value equals 8 bytes)
+	UseReplacementSelection      bool // InitialSort is used by default instead
+	ReserveMemoryForSegmentsInfo int  // expressed in values (1 value equals 8 bytes). This parameter only used by replacement selection algorithm
+	FirstStageMemoryLimit        int  // expressed in values (1 value equals 8 bytes)
 }
 
 const DefaultBufferSize = sortio.DefaultBufValuesCount
 
 func DefaultParams(memoryLimit int) Params {
-	return DefaultParamsBufferSize(memoryLimit, DefaultBufferSize)
+	return CreateParams(memoryLimit, DefaultBufferSize, false)
 }
 
-func DefaultParamsBufferSize(memoryLimit, bufferSize int) Params {
+func CreateParams(memoryLimit int, bufferSize int, useReplacementSelection bool) Params {
 	// this should be enough unless the input is more than a thousand times larger than the memory limit
-	reserveMemoryForSegmentsInfo := 4096
+	var reserveMemoryForSegmentsInfo = 4096
 
 	return Params{
-		MemoryLimit:                     memoryLimit,
-		Arity:                           -1,  // it will be calculated later by the sorting algorithm
-		ReserveMemoryForSegmentsInfo:    reserveMemoryForSegmentsInfo,
-		ReplacementSelectionMemoryLimit: memoryLimit - 2 * bufferSize - reserveMemoryForSegmentsInfo,
-		BufferSize:                      bufferSize,
+		MemoryLimit:                  memoryLimit,
+		Arity:                        -1, // it will be calculated later by the sorting algorithm
+		BufferSize:                   bufferSize,
+		UseReplacementSelection:      false,
+		ReserveMemoryForSegmentsInfo: reserveMemoryForSegmentsInfo,
+		FirstStageMemoryLimit:        memoryLimit - 2*bufferSize - reserveMemoryForSegmentsInfo,
 	}
 }
 
-var ErrExpectedPositiveValue = errors.New("expected positive value")
+// TODO: more informative error
+var ErrValueTooSmall = errors.New("parameter is too small")
 
-func validateParams(params Params) error {
-	if params.MemoryLimit <= 0 || params.ReserveMemoryForSegmentsInfo <= 0 || params.ReplacementSelectionMemoryLimit <= 0 || params.BufferSize <= 0 {
-		return ErrExpectedPositiveValue
+func ValidateParams(params Params) error {
+	if params.MemoryLimit < 1 || params.FirstStageMemoryLimit < 1 || params.BufferSize < 1 || params.ReserveMemoryForSegmentsInfo < 2 {
+		return ErrValueTooSmall
 	}
 
-	if params.Arity <= 0 && params.Arity != -1 {
-		return ErrExpectedPositiveValue
+	if params.Arity < 2 && params.Arity != -1 {
+		return ErrValueTooSmall
 	}
 
 	return nil
 }
 
 func DefaultArity(params Params, segmentsCount int) (int, error) {
-	err := validateParams(params)
+	err := ValidateParams(params)
 	if err != nil {
 		return 0, err
 	}
@@ -116,17 +123,18 @@ func (s *sorter) close() {
 }
 
 func (s *sorter) doSort(r sortio.Uint64Reader, w sortio.Uint64Writer) error {
-	err := validateParams(s.params)
+	err := ValidateParams(s.params)
 	if err != nil {
 		return err
 	}
 
-	log.Println("Running replacement selection...")
-	segmentsHeap, err := s.runReplacementSelection(r)
+	log.Println("Running first stage...")
+	segmentsHeap, err := s.runFirstStage(r)
 	if err != nil {
 		return err
 	}
-	log.Println("Replacement selection done.")
+	log.Println("First stage done.")
+	runtime.GC()
 
 	if s.params.Arity == -1 {
 		s.params.Arity, err = DefaultArity(s.params, segmentsHeap.Len())
@@ -142,34 +150,43 @@ func (s *sorter) doSort(r sortio.Uint64Reader, w sortio.Uint64Writer) error {
 		return err
 	}
 
-	log.Println("Replacement first merge...")
+	log.Println("Running first merge...")
 	firstMergeArity := (segmentsHeap.Len()-1)%(s.params.Arity-1) + 1
 	if firstMergeArity > 1 {
 		s.mergeSmallestSegments(&segmentsHeap, firstMergeArity)
 	}
 	log.Println("First merge done.")
+	runtime.GC()
 
 	log.Println("Running intermediate merge sort...")
 	for segmentsHeap.Len() > s.params.Arity {
 		s.mergeSmallestSegments(&segmentsHeap, s.params.Arity)
+		runtime.GC()
 	}
 	log.Println("Intermediate merge sort done.")
 
 	log.Println("Running final merge...")
 	_, err = s.mergeSmallestSegmentsTo(&segmentsHeap, s.params.Arity, w)
 	log.Println("Final merge done.")
+	runtime.GC()
+
 	return err
 }
 
-func (s *sorter) runReplacementSelection(r sortio.Uint64Reader) (sortSegmentsHeap, error) {
+func (s *sorter) runFirstStage(r sortio.Uint64Reader) (sortSegmentsHeap, error) {
 	filename, w, f, err := s.newTmpFileWriter()
 	if err != nil {
 		return sortSegmentsHeap{}, err
 	}
 	defer f.Close()
 
-	segments, err := DoReplacementSelection(r, w,
-		s.params.ReplacementSelectionMemoryLimit, s.params.ReserveMemoryForSegmentsInfo)
+	var segments []Segment
+	if s.params.UseReplacementSelection {
+		segments, err = DoReplacementSelection(r, w,
+			s.params.FirstStageMemoryLimit, s.params.ReserveMemoryForSegmentsInfo)
+	} else {
+		segments, err = DoInitialSort(r, w, s.params.FirstStageMemoryLimit, s.params.ReserveMemoryForSegmentsInfo)
+	}
 	if err != nil {
 		return sortSegmentsHeap{}, err
 	}
