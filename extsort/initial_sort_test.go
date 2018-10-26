@@ -68,8 +68,7 @@ func benchmarkSortSliceImpl(b *testing.B, count int) {
 	}
 }
 
-//
-// Warning: you can easily run out of memory while running this benchmark
+// 32s
 func BenchmarkSortSlice_1GiB(b *testing.B) {
 	const N = 1024 * 1024 * 1024  / sortio.SizeOfValue // 1GiB data = 128M values
 	benchmarkSortSliceImpl(b, N)

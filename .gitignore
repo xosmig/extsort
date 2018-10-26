@@ -1,3 +1,4 @@
 .idea
 vendor
 sort_tmp_*
+*.test

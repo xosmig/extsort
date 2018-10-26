@@ -29,13 +29,14 @@ func TestDoMultiwayMerge(t *testing.T) {
 	}
 }
 
-// Memory limit :(
+// (heap of pairs) 113s -> (heap of ints) 85s -> (copy-paste int heap from standard library) 33s ->
+// (add IntHeap.FixTop) 24s -> (readersHeap + some optimizations in the heap interface) 15s
 // Warning: you can easily run out of memory while running this benchmark
-// Warning: running this benchmark might take more than 15 minutes
-func BenchmarkDoMultiwayMerge_1G_values(b *testing.B) {
-	const N = 8 * 1024 * 1024 * 1024  / sortio.SizeOfValue // 8GiB data = 1G values
+func BenchmarkDoMultiwayMerge_4GiB_values(b *testing.B) {
+	const N = 4 * 1024 * 1024 * 1024 / sortio.SizeOfValue // 8GiB data = 1G values
 	const InputCount = 8
 	const ValuesPerInput = N / InputCount
+	//defer profile.Start(profile.MemProfile).Stop()
 
 	b.ResetTimer()
 	for n := 0; n < b.N; n++ {

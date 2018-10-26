@@ -17,7 +17,7 @@ func testHeapSort(t *testing.T, h SharedBufHeap, items []uint64) {
 	}
 
 	if h.Len() != len(items) {
-		t.Errorf("Expected len: %v, actual: %v", len(items), h.Len())
+		t.Errorf("Expected Len: %v, actual: %v", len(items), h.Len())
 	}
 
 	var heapSorted []uint64
