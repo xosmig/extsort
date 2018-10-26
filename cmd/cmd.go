@@ -11,7 +11,7 @@ import (
 )
 
 var rootCmd = &cobra.Command{
-	Use:   "extsort [input_file] [output_file] [--ml memory_limit] [--text] [--bs buffer_size]",
+	Use:   "extsort [input_file] [output_file]",
 	Short: "Sort numbers in text or binary format",
 	Args: cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
@@ -115,16 +115,16 @@ var bufferSize int
 var disableProfiling bool
 
 func Execute() {
-	rootCmd.PersistentFlags().IntVar(&memoryLimit, "ml", 1024 * 1024 * 1024, "memory limit (in bytes)")
-	rootCmd.PersistentFlags().IntVar(&bufferSize, "bs", 8 * 4096, "buffer size (in bytes)")
-	rootCmd.PersistentFlags().BoolVar(&textFormat, "text", false, "use textual format")
-	rootCmd.PersistentFlags().BoolVar(&textInputFormat, "text_input", false, "use textual input format")
-	rootCmd.PersistentFlags().BoolVar(&textOutputFormat, "text_output", false, "use textual output format")
+	rootCmd.PersistentFlags().IntVar(&memoryLimit, "ml", 1024 * 1024 * 1024, "Memory limit (in bytes)")
+	rootCmd.PersistentFlags().IntVar(&bufferSize, "bs", 8 * 4096, "Buffer size (in bytes)")
+	rootCmd.PersistentFlags().BoolVar(&textFormat, "text", false, "Use textual format")
+	rootCmd.PersistentFlags().BoolVar(&textInputFormat, "text_input", false, "Use textual input format")
+	rootCmd.PersistentFlags().BoolVar(&textOutputFormat, "text_output", false, "Use textual output format")
 	rootCmd.PersistentFlags().BoolVar(&useReplacementSelection, "replacement_selection",
-		false, "use replacement selection algorithm")
+		false, "Use replacement selection algorithm")
 	rootCmd.PersistentFlags().BoolVar(&disableProfiling, "no_prof", false, "disable io profiling")
-	rootCmd.PersistentFlags().BoolVar(&noSort, "noSort",
-		false, "just output the input data without sorting")
+	rootCmd.PersistentFlags().BoolVar(&noSort, "no_sort",
+		false, "Just output the input data without sorting. Can be used to convert from one format to another.")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
