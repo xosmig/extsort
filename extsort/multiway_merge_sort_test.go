@@ -21,7 +21,19 @@ func TestDoMultiwayMergeSort(t *testing.T) {
 				MemoryLimit:                  1000,
 				Arity:                        3,
 				ReserveMemoryForSegmentsInfo: 100,
-				FirstStageMemoryLimit:        2,
+				FirstStageMemoryLimit:        3,
+				BufferSize:                   1,
+				UseReplacementSelection:      false,
+			},
+			name: "small_initialSort",
+		},
+		{
+			inputData: []uint64{2326, 141, 15, 824, 2, 1882, 344, 152, 85, 5, 123, 123, 1, 268, 1023, 9652},
+			params: Params{
+				MemoryLimit:                  1000,
+				Arity:                        3,
+				ReserveMemoryForSegmentsInfo: 100,
+				FirstStageMemoryLimit:        3,
 				BufferSize:                   1,
 				UseReplacementSelection:      true,
 			},
@@ -30,7 +42,12 @@ func TestDoMultiwayMergeSort(t *testing.T) {
 		{
 			inputData: generateRandomArray(10 * 1024 * 1024),
 			params:    DefaultParams(1024 * 1024),
-			name:      "10M_randomValues_defaultParams",
+			name:      "10M_randomValues_initialSort",
+		},
+		{
+			inputData: generateRandomArray(10 * 1024 * 1024),
+			params:    CreateParams(1024 * 1024, DefaultBufferSize, true),
+			name:      "10M_randomValues_replacementSelection",
 		},
 	}
 

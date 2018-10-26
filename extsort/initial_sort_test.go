@@ -52,6 +52,26 @@ func BenchmarkDoInitialSort_1G_values(b *testing.B) {
 	}
 }
 
+// 300s
+// Warning: you can easily run out of memory while running this benchmark
+func BenchmarkSortSlice_1G_values(b *testing.B) {
+	const N = 8 * 1024 * 1024 * 1024  / sortio.SizeOfValue // 8GiB data = 1G values
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		b.StopTimer()
+		log.Println("Preparing data...")
+		inputData := make([]uint64, N)
+		for i := range inputData {
+			inputData[i] = rand.Uint64()
+		}
+		log.Println("Preparation finished.")
+		b.StartTimer()
+
+		sort.Slice(inputData, func(i, j int) bool { return inputData[i] < inputData[j] })
+	}
+}
+
 // 22s
 func BenchmarkSortSlice_100M_values(b *testing.B) {
 	const N = 100 * 1000 * 1000

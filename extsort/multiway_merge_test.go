@@ -2,7 +2,10 @@ package extsort
 
 import (
 	sortio "github.com/xosmig/extsort/io"
+	"log"
+	"math/rand"
 	"reflect"
+	"sort"
 	"testing"
 )
 
@@ -23,5 +26,37 @@ func TestDoMultiwayMerge(t *testing.T) {
 
 	if !reflect.DeepEqual(expectedOutput, output.Data()) {
 		t.Fatalf("expected output: %v, actual: %v", expectedOutput, output.Data())
+	}
+}
+
+//
+// Warning: you can easily run out of memory while running this benchmark
+// Warning: running this benchmark might take more than 15 minutes
+func BenchmarkDoMultiwayMerge_1G_values(b *testing.B) {
+	const N = 8 * 1024 * 1024 * 1024  / sortio.SizeOfValue // 8GiB data = 1G values
+	const InputCount = 8
+	const ValuesPerInput = N / InputCount
+
+	b.ResetTimer()
+	for n := 0; n < b.N; n++ {
+		b.StopTimer()
+		log.Println("Preparing data...")
+
+		input := make([]sortio.Uint64Reader, InputCount)
+		for i := range input {
+			inputPart := make([]uint64, ValuesPerInput)
+			for j := range inputPart {
+				inputPart[j] = rand.Uint64()
+			}
+			sort.Slice(inputPart, func(i, j int) bool { return inputPart[i] < inputPart[j] })
+			input[i] = sortio.NewSliceUint64Reader(inputPart)
+		}
+
+		output := sortio.NewNullUint64Writer()
+
+		log.Println("Preparation finished.")
+		b.StartTimer()
+
+		DoMultiwayMerge(input, output)
 	}
 }

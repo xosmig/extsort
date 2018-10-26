@@ -38,7 +38,7 @@ func CreateParams(memoryLimit int, bufferSize int, useReplacementSelection bool)
 		MemoryLimit:                  memoryLimit,
 		Arity:                        -1, // it will be calculated later by the sorting algorithm
 		BufferSize:                   bufferSize,
-		UseReplacementSelection:      false,
+		UseReplacementSelection:      useReplacementSelection,
 		ReserveMemoryForSegmentsInfo: reserveMemoryForSegmentsInfo,
 		FirstStageMemoryLimit:        memoryLimit - 2*bufferSize - reserveMemoryForSegmentsInfo,
 	}

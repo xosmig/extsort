@@ -91,24 +91,27 @@ func (r *BinaryUint64Reader) ReadUint64() (uint64, error) {
 	return value, nil
 }
 
-type SliceUint64Reader struct{ data []uint64 }
+type SliceUint64Reader struct{
+	data []uint64
+	pos  int
+}
 
 func NewSliceUint64Reader(data []uint64) *SliceUint64Reader {
-	return &SliceUint64Reader{data}
+	return &SliceUint64Reader{data, 0}
 }
 
 func (r *SliceUint64Reader) ReadUint64() (uint64, error) {
-	if len(r.data) == 0 {
+	if r.pos == len(r.data) {
 		return 0, io.EOF
 	}
 
-	value := r.data[0]
-	r.data = r.data[1:]
+	value := r.data[r.pos]
+	r.pos++
 	return value, nil
 }
 
 func (r *SliceUint64Reader) Data() []uint64 {
-	return r.data
+	return r.data[r.pos:]
 }
 
 func ReadUint64To(r Uint64Reader, out *uint64, err *error) bool {
