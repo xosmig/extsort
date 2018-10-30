@@ -174,7 +174,7 @@ func NewTextUint64ReaderCount(r io.Reader, count int) *TextUint64Reader {
 		stream = bufio.NewReaderSize(r, count*SizeOfValue)
 	}
 	return &TextUint64Reader{
-		stream: stream,
+		stream:   stream,
 		profiler: util.NewNilSimpleProfiler(),
 	}
 }

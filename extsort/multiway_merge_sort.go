@@ -97,8 +97,8 @@ func DoMultiwayMergeSortParams(
 	profiler *util.SimpleProfiler) error {
 
 	s := sorter{
-		params:  params,
-		byteBuf: sortio.NewUint64ByteBuf(params.BufferSize),
+		params:   params,
+		byteBuf:  sortio.NewUint64ByteBuf(params.BufferSize),
 		profiler: profiler,
 	}
 	defer s.close()

@@ -26,7 +26,7 @@ func DoInitialSort(
 		segments = append(segments, Segment{segmentBegin, count})
 		segmentBegin += count
 
-		if 2 * len(segments) > segmentsMemoryLimit {
+		if 2*len(segments) > segmentsMemoryLimit {
 			return nil, ErrNotEnoughMemory
 		}
 	}

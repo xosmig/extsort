@@ -47,7 +47,7 @@ func TestDoMultiwayMergeSort(t *testing.T) {
 		},
 		{
 			inputData: generateRandomArray(10 * 1024 * 1024),
-			params:    CreateParams(1024 * 1024, DefaultBufferSize, true),
+			params:    CreateParams(1024*1024, DefaultBufferSize, true),
 			name:      "10M_randomValues_replacementSelection",
 		},
 	}
@@ -84,7 +84,7 @@ func TestDoMultiwayMergeSort(t *testing.T) {
 // 500s
 // Warning: you can easily run out of memory while running this benchmark
 func BenchmarkDoMultiwayMergeSort_1G_values(b *testing.B) {
-	const N = 8 * 1024 * 1024 * 1024  / sortio.SizeOfValue // 8GiB data = 1G values
+	const N = 8 * 1024 * 1024 * 1024 / sortio.SizeOfValue       // 8GiB data = 1G values
 	const MemoryLimit = 1024 * 1024 * 1024 / sortio.SizeOfValue // 1 GiB data = 128M values
 
 	b.ResetTimer()

@@ -13,7 +13,7 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "extsort [input_file] [output_file]",
 	Short: "Sort numbers in text or binary format",
-	Args: cobra.MaximumNArgs(2),
+	Args:  cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
 		bufferSizeValues := bufferSize / sortio.SizeOfValue
 		if bufferSizeValues < 1 {
@@ -77,7 +77,7 @@ var rootCmd = &cobra.Command{
 		output.SetProfiler(profiler)
 
 		params := extsort.CreateParams(
-			memoryLimitValues - 3 * bufferSizeValues,
+			memoryLimitValues-3*bufferSizeValues,
 			bufferSizeValues,
 			useReplacementSelection)
 
@@ -85,7 +85,6 @@ var rootCmd = &cobra.Command{
 		if noSort {
 			run = func() error { return sortio.CopyValues(input, output) }
 		}
-
 
 		profiler.Start()
 		err := run()
@@ -98,8 +97,8 @@ var rootCmd = &cobra.Command{
 
 		if !profiler.IsNilProfiler() {
 			fmt.Fprint(os.Stderr, "Profiling results:\n")
-			fmt.Fprintf(os.Stderr, "io time: %.2f seconds\n", float64(profiler.GetTotalMeasuredDuration().Nanoseconds()) / 1e9)
-			fmt.Fprintf(os.Stderr, "total time: %.2f seconds\n", float64(profiler.GetTotalRunningDuration().Nanoseconds()) / 1e9)
+			fmt.Fprintf(os.Stderr, "io time: %.2f seconds\n", float64(profiler.GetTotalMeasuredDuration().Nanoseconds())/1e9)
+			fmt.Fprintf(os.Stderr, "total time: %.2f seconds\n", float64(profiler.GetTotalRunningDuration().Nanoseconds())/1e9)
 			fmt.Fprintf(os.Stderr, "io time ratio: %.2f\n", profiler.GetMeasuredDurationRatio())
 		}
 	},
@@ -115,8 +114,8 @@ var bufferSize int
 var disableProfiling bool
 
 func Execute() {
-	rootCmd.PersistentFlags().IntVar(&memoryLimit, "ml", 1024 * 1024 * 1024, "Memory limit (in bytes)")
-	rootCmd.PersistentFlags().IntVar(&bufferSize, "bs", 8 * 4096, "Buffer size (in bytes)")
+	rootCmd.PersistentFlags().IntVar(&memoryLimit, "ml", 1024*1024*1024, "Memory limit (in bytes)")
+	rootCmd.PersistentFlags().IntVar(&bufferSize, "bs", 8*4096, "Buffer size (in bytes)")
 	rootCmd.PersistentFlags().BoolVar(&textFormat, "text", false, "Use textual format")
 	rootCmd.PersistentFlags().BoolVar(&textInputFormat, "text_input", false, "Use textual input format")
 	rootCmd.PersistentFlags().BoolVar(&textOutputFormat, "text_output", false, "Use textual output format")

@@ -24,7 +24,7 @@ func DoReplacementSelection(
 
 	addSegment := func(segment Segment) error {
 		segments = append(segments, segment)
-		if 2 * len(segments) > segmentsMemoryLimit {
+		if 2*len(segments) > segmentsMemoryLimit {
 			return ErrNotEnoughMemory
 		}
 		return nil
