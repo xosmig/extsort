@@ -4,9 +4,9 @@ import (
 	"bufio"
 	"encoding/binary"
 	"errors"
-	"fmt"
 	"github.com/xosmig/extsort/util"
 	"io"
+	"strconv"
 )
 
 type Syncer interface {
@@ -33,15 +33,15 @@ type BinaryUint64Writer struct {
 
 var ErrTooSmallBuffer = errors.New("too small buffer provided")
 
-func NewBinaryUint64WriterCountBuf(w WriteSyncer, count int, bytesBuf []byte) *BinaryUint64Writer {
-	if len(bytesBuf) < count*SizeOfValue {
+func NewBinaryUint64WriterCountBuf(w WriteSyncer, count int, byteBuffer []byte) *BinaryUint64Writer {
+	if len(byteBuffer) < count*SizeOfValue {
 		panic(ErrTooSmallBuffer)
 	}
 
 	return &BinaryUint64Writer{
 		stream:    w,
 		valuesBuf: make([]uint64, 0, count),
-		writeBuf:  bytesBuf,
+		writeBuf:  byteBuffer,
 		profiler:  util.NewNilSimpleProfiler(),
 	}
 }
@@ -142,14 +142,14 @@ type TextUint64Writer struct {
 }
 
 func NewTextUint64WriterCount(w io.Writer, count int) *TextUint64Writer {
-	if stream, ok := w.(*bufio.Writer); ok {
-		return &TextUint64Writer{
-			stream: stream,
-		}
-	} else {
-		return &TextUint64Writer{
-			stream: bufio.NewWriterSize(w, count*SizeOfValue),
-		}
+	stream, ok := w.(*bufio.Writer)
+	if !ok {
+		stream = bufio.NewWriterSize(w, count*SizeOfValue)
+	}
+
+	return &TextUint64Writer{
+		stream:   stream,
+		profiler: util.NewNilSimpleProfiler(),
 	}
 }
 
@@ -158,8 +158,11 @@ func (w *TextUint64Writer) SetProfiler(p *util.SimpleProfiler) {
 }
 
 func (w *TextUint64Writer) WriteUint64(x uint64) error {
+	byteBuf := make([]byte, 0, 30)
+	bufWithValue := strconv.AppendUint(byteBuf, x, /*base=*/10)
+
 	w.profiler.StartMeasuring()
-	_, err := w.stream.WriteString(fmt.Sprintln(x))
+	_, err := w.stream.Write(bufWithValue)
 	w.profiler.FinishMeasuring()
 	return err
 }

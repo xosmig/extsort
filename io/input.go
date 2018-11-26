@@ -173,6 +173,7 @@ func NewTextUint64ReaderCount(r io.Reader, count int) *TextUint64Reader {
 	if !ok {
 		stream = bufio.NewReaderSize(r, count*SizeOfValue)
 	}
+
 	return &TextUint64Reader{
 		stream:   stream,
 		profiler: util.NewNilSimpleProfiler(),
@@ -186,13 +187,61 @@ func (r *TextUint64Reader) SetProfiler(p *util.SimpleProfiler) {
 func (r *TextUint64Reader) ReadUint64() (uint64, error) {
 	var value uint64
 	r.profiler.StartMeasuring()
-	_, err := fmt.Fscan(r.stream, &value)
+	_, err := fmt.Fscanf(r.stream, "%d", &value)
 	r.profiler.FinishMeasuring()
 	if err != nil {
 		return 0, err
 	}
 	return value, nil
 }
+
+//func isDigit(b byte) bool {
+//	return b >= '0' && b <= '9'
+//}
+//
+//func atoi(buf []byte) (uint64, []byte) {
+//	var res uint64 = 0
+//
+//	for len(buf) > 0 && isDigit(buf[0]) {
+//		res = 10 * res + uint64(buf[0] - '0')
+//		buf = buf[1:]
+//	}
+//
+//	return res, buf
+//}
+//
+//func (r *TextUint64Reader) ReadUint64() (uint64, error) {
+//	byteBuf := make([]byte, 0, 30)
+//
+//	r.profiler.StartMeasuring()
+//	var err error
+//	for {
+//		var b byte
+//		b, err = r.stream.ReadByte()
+//		if err != nil {
+//			break
+//		}
+//		if !isDigit(b) {
+//			r.stream.UnreadByte()
+//			break
+//		}
+//		byteBuf = append(byteBuf, b)
+//	}
+//	r.profiler.FinishMeasuring()
+//
+//	if err != nil && err != io.EOF {
+//		return 0, err
+//	}
+//
+//	if len(byteBuf) == nil
+//
+//	value, tail := atoi(byteBuf[:readBytes])
+//	for idx := len(tail) - 1; idx >= 0; idx-- {
+//		r.stream.UnreadByte()
+//	}
+//
+//	return value, nil
+//}
 
 //func (r BoundedUint64Reader) PeekUint64() (uint64, error) {
 //	if r.read == r.length {
