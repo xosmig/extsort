@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"github.com/pkg/profile"
 	"github.com/spf13/cobra"
 	"github.com/xosmig/extsort/extsort"
 	sortio "github.com/xosmig/extsort/io"
@@ -15,6 +16,10 @@ var rootCmd = &cobra.Command{
 	Short: "Sort numbers in text or binary format",
 	Args:  cobra.MaximumNArgs(2),
 	Run: func(cmd *cobra.Command, args []string) {
+		if enableMemoryProfiling {
+			defer profile.Start(profile.MemProfile).Stop()
+		}
+
 		bufferSizeValues := bufferSize / sortio.SizeOfValue
 		if bufferSizeValues < 1 {
 			fmt.Fprintln(os.Stderr, "Too small buffer size")
@@ -55,7 +60,7 @@ var rootCmd = &cobra.Command{
 		}
 		input.SetProfiler(profiler)
 
-		var outputFile io.Writer
+		var outputFile *os.File
 		if len(args) >= 2 {
 			f, err := os.Create(args[1])
 			if err != nil {
@@ -112,6 +117,7 @@ var useReplacementSelection bool
 var noSort bool
 var bufferSize int
 var disableProfiling bool
+var enableMemoryProfiling bool
 
 func Execute() {
 	rootCmd.PersistentFlags().IntVar(&memoryLimit, "ml", 1024*1024*1024, "Memory limit (in bytes)")
@@ -124,6 +130,8 @@ func Execute() {
 	rootCmd.PersistentFlags().BoolVar(&disableProfiling, "no_prof", false, "disable io profiling")
 	rootCmd.PersistentFlags().BoolVar(&noSort, "no_sort",
 		false, "Just output the input data without sorting. Can be used to convert from one format to another.")
+	rootCmd.PersistentFlags().BoolVar(&enableMemoryProfiling, "memory_prof",
+		false, "Enable memory profiling. Will create file mem.pprof.")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

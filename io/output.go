@@ -9,6 +9,15 @@ import (
 	"io"
 )
 
+type Syncer interface {
+	Sync() error
+}
+
+type WriteSyncer interface {
+	io.Writer
+	Syncer
+}
+
 type Uint64Writer interface {
 	WriteUint64(x uint64) error
 	Flush() error
@@ -16,7 +25,7 @@ type Uint64Writer interface {
 }
 
 type BinaryUint64Writer struct {
-	stream    io.Writer
+	stream    WriteSyncer
 	valuesBuf []uint64
 	writeBuf  []byte
 	profiler  *util.SimpleProfiler
@@ -24,7 +33,7 @@ type BinaryUint64Writer struct {
 
 var ErrTooSmallBuffer = errors.New("too small buffer provided")
 
-func NewBinaryUint64WriterCountBuf(w io.Writer, count int, bytesBuf []byte) *BinaryUint64Writer {
+func NewBinaryUint64WriterCountBuf(w WriteSyncer, count int, bytesBuf []byte) *BinaryUint64Writer {
 	if len(bytesBuf) < count*SizeOfValue {
 		panic(ErrTooSmallBuffer)
 	}
@@ -37,11 +46,11 @@ func NewBinaryUint64WriterCountBuf(w io.Writer, count int, bytesBuf []byte) *Bin
 	}
 }
 
-func NewBinaryUint64WriterCount(w io.Writer, count int) *BinaryUint64Writer {
+func NewBinaryUint64WriterCount(w WriteSyncer, count int) *BinaryUint64Writer {
 	return NewBinaryUint64WriterCountBuf(w, count, NewUint64ByteBuf(count))
 }
 
-func NewBinaryUint64Writer(w io.Writer) *BinaryUint64Writer {
+func NewBinaryUint64Writer(w WriteSyncer) *BinaryUint64Writer {
 	return NewBinaryUint64WriterCount(w, DefaultBufValuesCount)
 }
 
@@ -55,12 +64,22 @@ func (w *BinaryUint64Writer) Flush() error {
 		binary.LittleEndian.PutUint64(w.writeBuf[valueIdx*SizeOfValue:], w.valuesBuf[valueIdx])
 	}
 
+	var errWrite error = nil
+	var errSync error = nil
+
 	w.profiler.StartMeasuring()
-	_, err := w.stream.Write(w.writeBuf[:count*SizeOfValue])
+	_, errWrite = w.stream.Write(w.writeBuf[:count*SizeOfValue])
+	if errWrite == nil {
+		errSync = w.stream.Sync()
+	}
 	w.profiler.FinishMeasuring()
 
-	if err != nil {
-		return err
+	if errWrite != nil {
+		return errWrite
+	}
+
+	if errSync != nil {
+		return errSync
 	}
 
 	w.valuesBuf = w.valuesBuf[:0]
