@@ -44,20 +44,21 @@ func (h *sortSegmentsHeapImpl) Pop() interface{} {
 	return x
 }
 
-type sortSegmentsHeap struct{ impl sortSegmentsHeapImpl }
+type sortSegmentsHeap struct{ impl *sortSegmentsHeapImpl }
 
 func newSortSegmentsHeap(data []sortSegment) sortSegmentsHeap {
-	h := sortSegmentsHeap{impl: sortSegmentsHeapImpl(data)}
-	heap.Init(&h.impl)
+	impl := sortSegmentsHeapImpl(data)
+	h := sortSegmentsHeap{impl: &impl}
+	heap.Init(h.impl)
 	return h
 }
 
 func (h *sortSegmentsHeap) HPush(segment sortSegment) {
-	heap.Push(&h.impl, segment)
+	heap.Push(h.impl, segment)
 }
 
 func (h *sortSegmentsHeap) HPop() sortSegment {
-	return heap.Pop(&h.impl).(sortSegment)
+	return heap.Pop(h.impl).(sortSegment)
 }
 
 func (h *sortSegmentsHeap) Len() int {

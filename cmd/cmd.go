@@ -86,7 +86,14 @@ var rootCmd = &cobra.Command{
 			bufferSizeValues,
 			useReplacementSelection)
 
-		run := func() error { return extsort.DoMultiwayMergeSortParams(input, output, params, profiler) }
+		run := func() error {
+			if firstStageOnly {
+				_, err := extsort.DoFirstStageParams(input, output, params)
+				return err
+			} else {
+				return extsort.DoMultiwayMergeSortParams(input, output, params, profiler)
+			}
+		}
 		if noSort {
 			run = func() error { return sortio.CopyValues(input, output) }
 		}
@@ -118,20 +125,23 @@ var noSort bool
 var bufferSize int
 var disableProfiling bool
 var enableMemoryProfiling bool
+var firstStageOnly bool
 
 func Execute() {
-	rootCmd.PersistentFlags().IntVar(&memoryLimit, "ml", 1024*1024*1024, "Memory limit (in bytes)")
-	rootCmd.PersistentFlags().IntVar(&bufferSize, "bs", 8*4096, "Buffer size (in bytes)")
-	rootCmd.PersistentFlags().BoolVar(&textFormat, "text", false, "Use textual format")
-	rootCmd.PersistentFlags().BoolVar(&textInputFormat, "text_input", false, "Use textual input format")
-	rootCmd.PersistentFlags().BoolVar(&textOutputFormat, "text_output", false, "Use textual output format")
+	rootCmd.PersistentFlags().IntVar(&memoryLimit, "ml", 1024*1024*1024, "Memory limit (in bytes).")
+	rootCmd.PersistentFlags().IntVar(&bufferSize, "bs", 8*4096, "Buffer size (in bytes).")
+	rootCmd.PersistentFlags().BoolVar(&textFormat, "text", false, "Use textual format.")
+	rootCmd.PersistentFlags().BoolVar(&textInputFormat, "text_input", false, "Use textual input format.")
+	rootCmd.PersistentFlags().BoolVar(&textOutputFormat, "text_output", false, "Use textual output format.")
 	rootCmd.PersistentFlags().BoolVar(&useReplacementSelection, "replacement_selection",
-		false, "Use replacement selection algorithm")
-	rootCmd.PersistentFlags().BoolVar(&disableProfiling, "no_prof", false, "disable io profiling")
+		false, "Use replacement selection algorithm.")
+	rootCmd.PersistentFlags().BoolVar(&disableProfiling, "no_prof", false, "Disable io profiling.")
 	rootCmd.PersistentFlags().BoolVar(&noSort, "no_sort",
 		false, "Just output the input data without sorting. Can be used to convert from one format to another.")
 	rootCmd.PersistentFlags().BoolVar(&enableMemoryProfiling, "memory_prof",
-		false, "Enable memory profiling. Will create file mem.pprof.")
+		false, "Enable memory profiling.")
+	rootCmd.PersistentFlags().BoolVar(&firstStageOnly, "first_stage_only",
+		false, "Run only the first stage of sorting.")
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)

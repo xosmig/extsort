@@ -159,7 +159,7 @@ func (w *TextUint64Writer) SetProfiler(p *util.SimpleProfiler) {
 
 func (w *TextUint64Writer) WriteUint64(x uint64) error {
 	byteBuf := make([]byte, 0, 30)
-	bufWithValue := strconv.AppendUint(byteBuf, x, /*base=*/10)
+	bufWithValue := strconv.AppendUint(byteBuf, x /*base=*/, 10)
 
 	w.profiler.StartMeasuring()
 	_, err := w.stream.Write(bufWithValue)

@@ -81,6 +81,24 @@ func DefaultArity(params Params, segmentsCount int) (int, error) {
 	return arity, nil
 }
 
+func DoFirstStageParams(
+	r sortio.Uint64Reader,
+	w sortio.Uint64Writer,
+	params Params) ([]Segment, error) {
+
+	var segments []Segment
+	var err error
+
+	if params.UseReplacementSelection {
+		segments, err = DoReplacementSelection(r, w,
+			params.FirstStageMemoryLimit, params.ReserveMemoryForSegmentsInfo)
+	} else {
+		segments, err = DoInitialSort(r, w, params.FirstStageMemoryLimit, params.ReserveMemoryForSegmentsInfo)
+	}
+
+	return segments, err
+}
+
 func DoMultiwayMergeSort(
 	r sortio.Uint64Reader,
 	w sortio.Uint64Writer,
@@ -136,6 +154,22 @@ func (s *sorter) close() {
 	}
 }
 
+func bToMb(b uint64) uint64 {
+	return b / 1024 / 1024
+}
+
+func (s *sorter) logMemoryUsage(msg string) {
+	var m runtime.MemStats
+	runtime.ReadMemStats(&m)
+	// For info on each, see: https://golang.org/pkg/runtime/#MemStats
+	log.Printf("%s: Alloc = %v MiB\tTotalAlloc = %v MiB\tSys = %v MiB\tNumGC = %v\n",
+		msg,
+		bToMb(m.Alloc),
+		bToMb(m.TotalAlloc),
+		bToMb(m.Sys),
+		m.NumGC)
+}
+
 func (s *sorter) doSort(r sortio.Uint64Reader, w sortio.Uint64Writer) error {
 	err := ValidateParams(s.params)
 	if err != nil {
@@ -143,12 +177,15 @@ func (s *sorter) doSort(r sortio.Uint64Reader, w sortio.Uint64Writer) error {
 	}
 
 	log.Println("Running first stage...")
+	runtime.GC()
+	s.logMemoryUsage("Memory usage before fist stage")
 	segmentsHeap, err := s.runFirstStage(r)
 	if err != nil {
 		return err
 	}
-	log.Println("First stage done.")
+	s.logMemoryUsage("Memory usage after fist stage")
 	runtime.GC()
+	log.Println("First stage done.")
 
 	if s.params.Arity == -1 {
 		s.params.Arity, err = DefaultArity(s.params, segmentsHeap.Len())
@@ -157,34 +194,44 @@ func (s *sorter) doSort(r sortio.Uint64Reader, w sortio.Uint64Writer) error {
 		}
 	}
 
-	if segmentsHeap.Len() <= s.params.Arity {
-		log.Println("Running final merge...")
-		_, err := s.mergeSmallestSegmentsTo(&segmentsHeap, segmentsHeap.Len(), w)
-		log.Println("Final merge done.")
-		return err
-	}
+	if segmentsHeap.Len() > s.params.Arity {
+		firstMergeArity := (segmentsHeap.Len()-1)%(s.params.Arity-1) + 1
+		if firstMergeArity > 1 {
+			log.Println("Running first merge...")
+			s.logMemoryUsage("Memory usage before first merge")
+			err = s.mergeSmallestSegments(&segmentsHeap, firstMergeArity)
+			if err != nil {
+				return err
+			}
+			s.logMemoryUsage("Memory usage before first merge")
+			runtime.GC()
+			log.Println("First merge done.")
+		}
 
-	log.Println("Running first merge...")
-	firstMergeArity := (segmentsHeap.Len()-1)%(s.params.Arity-1) + 1
-	if firstMergeArity > 1 {
-		s.mergeSmallestSegments(&segmentsHeap, firstMergeArity)
+		log.Println("Running intermediate merge sort...")
+		for segmentsHeap.Len() > s.params.Arity {
+			s.logMemoryUsage("Memory usage before merge")
+			err = s.mergeSmallestSegments(&segmentsHeap, s.params.Arity)
+			if err != nil {
+				return err
+			}
+			s.logMemoryUsage("Memory usage after merge")
+			runtime.GC()
+		}
+		log.Println("Intermediate merge sort done.")
 	}
-	log.Println("First merge done.")
-	runtime.GC()
-
-	log.Println("Running intermediate merge sort...")
-	for segmentsHeap.Len() > s.params.Arity {
-		s.mergeSmallestSegments(&segmentsHeap, s.params.Arity)
-		runtime.GC()
-	}
-	log.Println("Intermediate merge sort done.")
 
 	log.Println("Running final merge...")
-	_, err = s.mergeSmallestSegmentsTo(&segmentsHeap, s.params.Arity, w)
-	log.Println("Final merge done.")
+	s.logMemoryUsage("Memory usage before final merge")
+	_, err = s.mergeSmallestSegmentsTo(&segmentsHeap, segmentsHeap.Len(), w)
+	if err != nil {
+		return err
+	}
+	s.logMemoryUsage("Memory usage after final merge")
 	runtime.GC()
+	log.Println("Final merge done.")
 
-	return err
+	return nil
 }
 
 func (s *sorter) runFirstStage(r sortio.Uint64Reader) (sortSegmentsHeap, error) {
@@ -194,13 +241,7 @@ func (s *sorter) runFirstStage(r sortio.Uint64Reader) (sortSegmentsHeap, error) 
 	}
 	defer f.Close()
 
-	var segments []Segment
-	if s.params.UseReplacementSelection {
-		segments, err = DoReplacementSelection(r, w,
-			s.params.FirstStageMemoryLimit, s.params.ReserveMemoryForSegmentsInfo)
-	} else {
-		segments, err = DoInitialSort(r, w, s.params.FirstStageMemoryLimit, s.params.ReserveMemoryForSegmentsInfo)
-	}
+	segments, err := DoFirstStageParams(r, w, s.params)
 	if err != nil {
 		return sortSegmentsHeap{}, err
 	}
@@ -238,7 +279,7 @@ func (s *sorter) mergeSmallestSegmentsTo(h *sortSegmentsHeap, n int, w sortio.Ui
 		if err != nil {
 			return 0, err
 		}
-		defer f.Close()
+		defer f.Close()  // disregard the warning about defer in a for loop
 
 		readers = append(readers, r)
 		outputLength += segment.count
