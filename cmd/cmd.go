@@ -31,6 +31,8 @@ var rootCmd = &cobra.Command{
 			fmt.Fprintln(os.Stderr, "Too small memory limit")
 			os.Exit(2)
 		}
+		// reserve 10% of memory for go runtime
+		memoryLimitValues = (memoryLimitValues * 9) / 10
 
 		byteBuffer := sortio.NewUint64ByteBuf(bufferSizeValues)
 
